@@ -2,6 +2,7 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import BottomTabs from "./BottomTabs";
 import PlayerScreen from "../screens/PlayerScreen";
+import DownloadsScreen from "../screens/DownloadsScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -22,6 +23,17 @@ export default function RootStack() {
           animation: "slide_from_bottom",
           // 'containedModal' or 'fullScreenModal' adds that native pop-down feel
           presentation: "fullScreenModal",
+          orientation: "all",
+          // Optional: prevents flickering on some Android versions
+          animationDuration: 400,
+        }}
+      />
+
+      <Stack.Screen
+        name="Downloads"
+        component={DownloadsScreen}
+        options={{
+          animation: "slide_from_right",
           orientation: "all",
           // Optional: prevents flickering on some Android versions
           animationDuration: 400,

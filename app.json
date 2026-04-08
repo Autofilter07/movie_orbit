@@ -47,7 +47,21 @@
           "supportsOpeningDocumentsInPlace": true,
           "enableFileSharing": true
         }
-      ]
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Movie Orbit to access videos.",
+          "savePhotosPermission": "Allow Movie Orbit to save videos.",
+          "isAccessMediaLocationEnabled": true,
+          "granularPermissions": [
+            "audio",
+            "photo",
+            "video"
+          ]
+        }
+      ],
+      "expo-background-task"
     ],
     "extra": {
       "eas": {

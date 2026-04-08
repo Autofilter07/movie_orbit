@@ -14,7 +14,7 @@ export default function Header() {
   const navigation = useNavigation();
 
   const handleNavigate = () => {
-    navigation.navigate("Search");
+    navigation.navigate("Downloads");
   };
   return (
     <View style={styles.headerWrapper}>

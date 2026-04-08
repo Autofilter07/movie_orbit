@@ -102,7 +102,7 @@ export default function BottomTabs() {
 const styles = StyleSheet.create({
   tabBar: {
     position: "absolute",
-    borderRadius: 30, // Slightly more rounded for responsiveness
+    borderRadius: 20, // Slightly more rounded for responsiveness
     borderTopWidth: 0,
     paddingHorizontal: 10,
     paddingTop: Platform.OS === "android" ? 20 : 20, // Fix for vertical centering on Android

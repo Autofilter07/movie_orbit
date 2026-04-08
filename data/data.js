@@ -9,7 +9,7 @@ export const MOVIES = [
       "https://m.media-amazon.com/images/M/MV5BNTFlZDI1YWQtMTVjNy00YWU1LTg2YjktMTlhYmRiYzQ3NTVhXkEyXkFqcGc@._V1_QL75_UX164_.jpg",
     description:
       "The story of J. Robert Oppenheimer and the creation of the atomic bomb.",
-    link: "https://pixeldrain.dev/api/file/Qg58ACTs",
+    link: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
   },
   {
     id: "2",
@@ -20,7 +20,7 @@ export const MOVIES = [
     image: "https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg",
     description:
       "Paul Atreides leads the Fremen in a war for control of Arrakis.",
-    link: "https://pixeldrain.dev/api/file/Qg58ACTs",
+    link: "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
   },
   {
     id: "3",
@@ -30,7 +30,7 @@ export const MOVIES = [
     genre: ["Action", "Drama"],
     image: "https://image.tmdb.org/t/p/w500/62HCnUTziyWcpDaBO2i1DX17ljH.jpg",
     description: "Maverick trains new pilots for a dangerous mission.",
-    link: "https://pixeldrain.dev/api/file/Qg58ACTs",
+    link: "https://samplelib.com/lib/preview/mp4/sample-15s.mp4",
   },
   {
     id: "4",
@@ -40,7 +40,7 @@ export const MOVIES = [
     genre: ["Action", "Adventure", "Sci-Fi"],
     image: "https://image.tmdb.org/t/p/w500/1g0dhYtq4irTY1GPXvft6k4YLjm.jpg",
     description: "Spider-Man faces villains from multiple universes.",
-    link: "https://pixeldrain.dev/api/file/Qg58ACTs",
+    link: "https://samplelib.com/lib/preview/mp4/sample-20s.mp4",
   },
   {
     id: "5",
