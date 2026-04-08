@@ -2,7 +2,6 @@ import React, { memo, useState } from "react";
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
@@ -10,6 +9,7 @@ import {
 import { Heart, Star } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import colors from "../theme/colors";
+import { Image } from "expo-image";
 
 export const CARD_HEIGHT = 280;
 
@@ -33,6 +33,8 @@ const MovieCard = memo(({ movie, width }) => {
         <Image
           source={{ uri: movie.image }}
           style={styles.image}
+          contentFit="cover"
+          cachePolicy={"memory-disk"}
           onLoadEnd={() => setLoading(false)}
         />
         <TouchableOpacity style={styles.heart}>

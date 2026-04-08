@@ -6,7 +6,6 @@ import {
   TextInput,
   FlatList,
   TouchableOpacity,
-  Image,
   Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,10 +13,11 @@ import { Search, Mic, PlayCircle, X } from "lucide-react-native";
 import { MOVIES } from "../data/data";
 import colors from "../theme/colors";
 import { useNavigation } from "@react-navigation/native"; // Added Import
+import { Image } from "expo-image";
 
 const { width } = Dimensions.get("window");
 
-export default function SearchScreen() {
+function SearchScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation(); // Initialize navigation
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,7 +39,12 @@ export default function SearchScreen() {
         navigation.navigate("Player", { movie: item });
       }}
     >
-      <Image source={{ uri: item.image }} style={styles.thumbnail} />
+      <Image
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        source={{ uri: item.image }}
+        style={styles.thumbnail}
+      />
       <Text style={styles.movieTitle} numberOfLines={1}>
         {item.title}
       </Text>
@@ -93,6 +98,8 @@ export default function SearchScreen() {
     </View>
   );
 }
+
+export default React.memo(SearchScreen);
 
 const styles = StyleSheet.create({
   container: {

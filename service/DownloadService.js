@@ -2,6 +2,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as MediaLibrary from "expo-media-library";
 import * as Notifications from "expo-notifications";
+import { Alert, AppState } from "react-native";
 
 const MOVIE_FOLDER = FileSystem.documentDirectory + "MoviesOrbit/";
 
@@ -9,12 +10,16 @@ export const DownloadService = {
   activeDownload: null,
 
   async initFolder() {
-    const dir = await FileSystem.getInfoAsync(MOVIE_FOLDER);
+    try {
+      const dir = await FileSystem.getInfoAsync(MOVIE_FOLDER);
 
-    if (!dir.exists) {
-      await FileSystem.makeDirectoryAsync(MOVIE_FOLDER, {
-        intermediates: true,
-      });
+      if (!dir.exists) {
+        await FileSystem.makeDirectoryAsync(MOVIE_FOLDER, {
+          intermediates: true,
+        });
+      }
+    } catch (e) {
+      console.error("initFolder error:", e);
     }
   },
 
@@ -25,17 +30,50 @@ export const DownloadService = {
   },
 
   async isDownloading(movie) {
-    if (!this.activeDownload) return false;
-    return this.activeDownload.movie.link === movie.link;
+    try {
+      if (!this.activeDownload) return false;
+      return this.activeDownload.movie.link === movie.link;
+    } catch {
+      return false;
+    }
   },
 
   async isDownloaded(movie) {
     try {
-      const path = this.getFilePath(movie);
-      const file = await FileSystem.getInfoAsync(path);
-      return file.exists;
+      const fileUri = this.getFilePath(movie);
+
+      try {
+        const file = await FileSystem.getInfoAsync(fileUri);
+        if (file.exists) return true;
+      } catch (e) {
+        console.error("FileSystem check error:", e);
+      }
+
+      try {
+        const album = await MediaLibrary.getAlbumAsync("MoviesOrbit");
+
+        if (album) {
+          const assets = await MediaLibrary.getAssetsAsync({
+            album,
+            mediaType: "video",
+            // first: 1000,
+          });
+
+          const target = assets.assets.find(
+            (a) =>
+              a.filename ===
+              movie.title.replace(/\s/g, "_").toLowerCase() + ".mp4"
+          );
+
+          if (target) return true;
+        }
+      } catch (e) {
+        console.error("MediaLibrary check error:", e);
+      }
+
+      return false;
     } catch (error) {
-      console.log(error);
+      console.error("isDownloaded error:", error);
       return false;
     }
   },
@@ -43,71 +81,140 @@ export const DownloadService = {
   async getProgress(movie) {
     try {
       const saved = await AsyncStorage.getItem(`download_${movie.link}`);
-
       if (!saved) return 0;
 
       const data = JSON.parse(saved);
-
       return Math.floor(data.progress * 100);
-    } catch {
+    } catch (e) {
+      console.error("getProgress error:", e);
       return 0;
     }
   },
 
   async startDownload(movie, onProgress) {
-    console.log("Starting download...");
-
-    await this.initFolder();
-
-    if (this.activeDownload) {
-      console.log("Another download is running");
-      return "BUSY";
-    }
-
-    const fileUri = this.getFilePath(movie);
-
-    const exists = await FileSystem.getInfoAsync(fileUri);
-
-    if (exists.exists) {
-      return "ALREADY_DOWNLOADED";
-    }
-
-    const progressCallback = async (downloadProgress) => {
-      const progress =
-        downloadProgress.totalBytesWritten /
-        downloadProgress.totalBytesExpectedToWrite;
-
-      const percent = Math.floor(progress * 100);
-
-      if (onProgress) onProgress(percent);
-
-      if (this.activeDownload) this.activeDownload.progress = percent;
-
-      await AsyncStorage.setItem(
-        `download_${movie.link}`,
-        JSON.stringify({
-          movie,
-          progress,
-          fileUri,
-        })
-      );
-    };
-
-    const resumable = FileSystem.createDownloadResumable(
-      movie.link,
-      fileUri,
-      {},
-      progressCallback
-    );
-
-    this.activeDownload = {
-      movie,
-      progress: 0,
-      status: "DOWNLOADING",
-      resumable,
-    };
-
     try {
+      await this.initFolder();
+
+      const fileUri = this.getFilePath(movie);
+      const fileName = movie.title.replace(/\s/g, "_").toLowerCase() + ".mp4";
+
+      // ==============================
+      // ✅ Check in App Folder
+      // ==============================
+      try {
+        const exists = await FileSystem.getInfoAsync(fileUri);
+
+        if (exists.exists) {
+          Alert.alert(
+            "Already Downloaded",
+            "Movie already exists in MoviesOrbit folder"
+          );
+          return "ALREADY_DOWNLOADED";
+        }
+      } catch (e) {
+        console.error("FileSystem check error:", e);
+      }
+
+      // ==============================
+      // ✅ Check in Internal Storage (MediaLibrary)
+      // ==============================
+      try {
+        const album = await MediaLibrary.getAlbumAsync("MoviesOrbit");
+
+        if (album) {
+          const assets = await MediaLibrary.getAssetsAsync({
+            album,
+            mediaType: "video",
+            first: 1000,
+          });
+
+          const target = assets.assets.find((a) => a.filename === fileName);
+
+          if (target) {
+            Alert.alert(
+              "Already Downloaded",
+              "Movie already exists in internal storage (MoviesOrbit album)"
+            );
+
+            return "ALREADY_DOWNLOADED";
+          }
+        }
+      } catch (e) {
+        console.error("MediaLibrary duplicate check error:", e);
+      }
+
+      // ==============================
+      // ✅ Active Download Check
+      // ==============================
+      if (this.activeDownload) {
+        if (this.activeDownload.movie.link === movie.link) {
+          if (this.activeDownload.status === "DOWNLOADING") {
+            await this.pauseDownload(movie);
+            Alert.alert("Download paused");
+            return "PAUSED";
+          }
+
+          if (this.activeDownload.status === "PAUSED") {
+            await this.resumeDownload(movie);
+            Alert.alert("Download resumed");
+            return "RESUMED";
+          }
+        }
+
+        Alert.alert("Another file is downloading.");
+        return "BUSY";
+      }
+
+      Alert.alert("Downloading started.");
+
+      // ==============================
+      // Progress Callback
+      // ==============================
+      const progressCallback = async (downloadProgress) => {
+        try {
+          const progress =
+            downloadProgress.totalBytesWritten /
+            downloadProgress.totalBytesExpectedToWrite;
+
+          const percent = Math.floor(progress * 100);
+
+          if (onProgress) onProgress(percent);
+
+          if (this.activeDownload) this.activeDownload.progress = percent;
+
+          await AsyncStorage.setItem(
+            `download_${movie.link}`,
+            JSON.stringify({
+              movie,
+              progress,
+              fileUri,
+              status: "DOWNLOADING",
+            })
+          );
+        } catch (e) {
+          console.error("progressCallback error:", e);
+        }
+      };
+
+      // ==============================
+      // Create Download
+      // ==============================
+      const resumable = FileSystem.createDownloadResumable(
+        movie.link,
+        fileUri,
+        {},
+        progressCallback
+      );
+
+      this.activeDownload = {
+        movie,
+        progress: 0,
+        status: "DOWNLOADING",
+        resumable,
+      };
+
+      this.handleAppStateChange(movie);
+
       const result = await resumable.downloadAsync();
 
       if (result) {
@@ -128,9 +235,93 @@ export const DownloadService = {
         return "DONE";
       }
     } catch (e) {
-      console.log("Download error:", e);
+      console.error("Download error:", e);
       this.activeDownload = null;
       return "ERROR";
+    }
+  },
+
+  handleAppStateChange(movie) {
+    try {
+      AppState.addEventListener("change", async (state) => {
+        if (state === "background" || state === "inactive") {
+          if (this.activeDownload) {
+            try {
+              await this.activeDownload.resumable.pauseAsync();
+
+              await AsyncStorage.setItem(
+                `download_${movie.link}`,
+                JSON.stringify({
+                  movie,
+                  progress: this.activeDownload.progress / 100,
+                  fileUri: this.getFilePath(movie),
+                  status: "PAUSED",
+                })
+              );
+
+              this.activeDownload = null;
+
+              console.info("Download paused on app close");
+            } catch (e) {
+              console.error("AppState pause error:", e);
+            }
+          }
+        }
+      });
+    } catch (e) {
+      console.error("handleAppStateChange error:", e);
+    }
+  },
+
+  async restoreDownload(onProgress) {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+
+      const downloadKey = keys.find((k) => k.startsWith("download_"));
+
+      if (!downloadKey) return;
+
+      const saved = await AsyncStorage.getItem(downloadKey);
+
+      if (!saved) return;
+
+      const data = JSON.parse(saved);
+
+      const { movie, fileUri } = data;
+
+      const resumable = FileSystem.createDownloadResumable(
+        movie.link,
+        fileUri,
+        {},
+        async (progressData) => {
+          const progress =
+            progressData.totalBytesWritten /
+            progressData.totalBytesExpectedToWrite;
+
+          if (onProgress) onProgress(Math.floor(progress * 100));
+
+          await AsyncStorage.setItem(
+            `download_${movie.link}`,
+            JSON.stringify({
+              movie,
+              progress,
+              fileUri,
+              status: "DOWNLOADING",
+            })
+          );
+        }
+      );
+
+      this.activeDownload = {
+        movie,
+        progress: data.progress * 100,
+        status: "PAUSED",
+        resumable,
+      };
+
+      console.info("Download restored");
+    } catch (e) {
+      console.error("restoreDownload error:", e);
     }
   },
 
@@ -144,22 +335,28 @@ export const DownloadService = {
 
       this.activeDownload.status = "PAUSED";
 
-      console.log("Download paused");
+      await AsyncStorage.setItem(
+        `download_${movie.link}`,
+        JSON.stringify({
+          movie,
+          progress: this.activeDownload.progress / 100,
+          fileUri: this.getFilePath(movie),
+          status: "PAUSED",
+        })
+      );
 
       return true;
     } catch (e) {
-      console.log("Pause error:", e);
+      console.error("Pause error:", e);
       return false;
     }
   },
 
-  async resumeDownload(movie, onProgress) {
+  async resumeDownload(movie) {
     try {
       if (!this.activeDownload) return false;
 
       if (this.activeDownload.movie.link !== movie.link) return false;
-
-      console.log("Resuming download");
 
       this.activeDownload.status = "DOWNLOADING";
 
@@ -167,7 +364,7 @@ export const DownloadService = {
 
       return true;
     } catch (e) {
-      console.log("Resume error:", e);
+      console.error("Resume error:", e);
       return false;
     }
   },
@@ -192,11 +389,9 @@ export const DownloadService = {
 
       this.activeDownload = null;
 
-      console.log("Download cancelled");
-
       return true;
     } catch (e) {
-      console.log("Cancel error:", e);
+      console.error("Cancel error:", e);
       return false;
     }
   },
@@ -205,10 +400,7 @@ export const DownloadService = {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
 
-      if (status !== "granted") {
-        console.log("Permission denied");
-        return;
-      }
+      if (status !== "granted") return;
 
       const asset = await MediaLibrary.createAssetAsync(uri);
 
@@ -220,21 +412,79 @@ export const DownloadService = {
         await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
       }
     } catch (e) {
-      console.log("Media save error:", e);
+      console.error("Media save error:", e);
     }
   },
 
-  async deleteDownload(fileUri) {
+  async deleteDownload(movie) {
     try {
-      const file = await FileSystem.getInfoAsync(fileUri);
+      let fileDeleted = false;
+      let mediaDeleted = false;
+      let storageDeleted = false;
 
-      if (file.exists) {
-        await FileSystem.deleteAsync(fileUri);
+      const fileUri = this.getFilePath(movie);
+      const fileName = movie.title.replace(/\s/g, "_").toLowerCase() + ".mp4";
+
+      // ==============================
+      // 📁 Delete from FileSystem
+      // ==============================
+      try {
+        const file = await FileSystem.getInfoAsync(fileUri);
+
+        if (file.exists) {
+          await FileSystem.deleteAsync(fileUri);
+          fileDeleted = true;
+        }
+      } catch (e) {
+        console.error("FileSystem delete error:", e);
       }
 
-      return true;
+      // ==============================
+      // 📂 Delete from MediaLibrary
+      // ==============================
+      try {
+        const album = await MediaLibrary.getAlbumAsync("MoviesOrbit");
+
+        if (album) {
+          const assets = await MediaLibrary.getAssetsAsync({
+            album,
+            mediaType: "video",
+            // first: 1000,
+          });
+
+          const target = assets.assets.find((a) => a.filename === fileName);
+
+          if (target) {
+            await MediaLibrary.deleteAssetsAsync([target.id]);
+            mediaDeleted = true;
+          }
+        }
+      } catch (e) {
+        console.error("MediaLibrary delete error:", e);
+      }
+
+      // ==============================
+      // 🧹 Remove AsyncStorage
+      // ==============================
+      try {
+        await AsyncStorage.removeItem(`download_${movie.link}`);
+        storageDeleted = true;
+      } catch (e) {
+        console.error("AsyncStorage delete error:", e);
+      }
+
+      // ==============================
+      // ✅ Final Result
+      // ==============================
+      if (fileDeleted || mediaDeleted) {
+        console.info("Delete successful");
+        return true;
+      }
+
+      console.info("Nothing deleted");
+      return false;
     } catch (e) {
-      console.log(e);
+      console.error("Delete error:", e);
       return false;
     }
   },
@@ -243,23 +493,61 @@ export const DownloadService = {
     try {
       await this.initFolder();
 
-      const dir = await FileSystem.getInfoAsync(MOVIE_FOLDER);
+      // 🧹 Delete MoviesOrbit folder (App storage)
+      try {
+        const dir = await FileSystem.getInfoAsync(MOVIE_FOLDER);
 
-      if (dir.exists) {
-        await FileSystem.deleteAsync(MOVIE_FOLDER, {
-          idempotent: true,
-        });
+        if (dir.exists) {
+          await FileSystem.deleteAsync(MOVIE_FOLDER, {
+            idempotent: true,
+          });
+        }
+      } catch (e) {
+        console.error("FileSystem clear error:", e);
       }
 
-      await AsyncStorage.clear();
+      // 🧹 Delete MediaLibrary album and videos
+      try {
+        const album = await MediaLibrary.getAlbumAsync("MoviesOrbit");
+
+        if (album) {
+          const assets = await MediaLibrary.getAssetsAsync({
+            album,
+            mediaType: "video",
+            // first: 1000,
+          });
+
+          if (assets.assets.length > 0) {
+            const ids = assets.assets.map((a) => a.id);
+            await MediaLibrary.deleteAssetsAsync(ids);
+          }
+
+          await MediaLibrary.deleteAlbumsAsync([album.id], true);
+        }
+      } catch (e) {
+        console.error("MediaLibrary clear error:", e);
+      }
+
+      // 🧹 Clear AsyncStorage
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+
+        const downloadKeys = keys.filter((k) => k.startsWith("download_"));
+
+        if (downloadKeys.length > 0) {
+          await AsyncStorage.multiRemove(downloadKeys);
+        }
+      } catch (e) {
+        console.error("AsyncStorage clear error:", e);
+      }
 
       this.activeDownload = null;
 
-      console.log("MoviesOrbit folder cleared");
+      console.info("MoviesOrbit fully cleared");
 
       return true;
     } catch (e) {
-      console.log("Clear error:", e);
+      console.error("Clear error:", e);
       return false;
     }
   },

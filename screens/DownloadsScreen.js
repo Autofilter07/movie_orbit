@@ -4,7 +4,6 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  Image,
   StyleSheet,
   Alert,
   useWindowDimensions,
@@ -12,19 +11,22 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
+  ArrowLeft,
   Download,
   FolderArchive,
   PlayCircle,
   Trash2,
 } from "lucide-react-native";
 import * as FileSystem from "expo-file-system/legacy";
+import * as MediaLibrary from "expo-media-library";
 import colors from "../theme/colors";
 import { DownloadService } from "../service/DownloadService";
+import { Image } from "expo-image";
 
 // Import your shared download service here
 // If you haven't made one, this screen will poll for active downloads
 
-export default function DownloadsScreen({ navigation }) {
+function DownloadsScreen({ navigation }) {
   const MOVIE_FOLDER = FileSystem.documentDirectory + "MoviesOrbit/";
   const insets = useSafeAreaInsets();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
@@ -55,23 +57,75 @@ export default function DownloadsScreen({ navigation }) {
 
   const fetchDownloads = async () => {
     try {
-      const dir = await FileSystem.getInfoAsync(MOVIE_FOLDER);
+      let downloadsList = [];
 
-      if (!dir.exists) {
-        setDownloads([]);
-        return;
+      // ==============================
+      // 📁 Get from FileSystem
+      // ==============================
+      try {
+        const dir = await FileSystem.getInfoAsync(MOVIE_FOLDER);
+
+        if (dir.exists) {
+          const files = await FileSystem.readDirectoryAsync(MOVIE_FOLDER);
+
+          const fileSystemDownloads = files.map((f) => ({
+            filename: f,
+            uri: MOVIE_FOLDER + f,
+            source: "filesystem",
+          }));
+
+          downloadsList = [...downloadsList, ...fileSystemDownloads];
+        }
+      } catch (e) {
+        console.error("FileSystem fetch error:", e);
       }
 
-      const files = await FileSystem.readDirectoryAsync(MOVIE_FOLDER);
+      // ==============================
+      // 📂 Ask Permission for MediaLibrary
+      // ==============================
+      try {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
 
-      const data = files.map((f) => ({
-        filename: f,
-        uri: MOVIE_FOLDER + f,
-      }));
+        if (status !== "granted") {
+          console.info("MediaLibrary permission denied");
+        } else {
+          // ==============================
+          // 📂 Get from MediaLibrary
+          // ==============================
+          const album = await MediaLibrary.getAlbumAsync("MoviesOrbit");
 
-      setDownloads(data);
+          if (album) {
+            const assets = await MediaLibrary.getAssetsAsync({
+              album,
+              mediaType: "video",
+              first: 1000,
+            });
+
+            const mediaDownloads = assets.assets.map((a) => ({
+              filename: a.filename,
+              uri: a.uri,
+              id: a.id,
+              source: "mediaLibrary",
+            }));
+
+            downloadsList = [...downloadsList, ...mediaDownloads];
+          }
+        }
+      } catch (e) {
+        console.error("MediaLibrary fetch error:", e);
+      }
+
+      // ==============================
+      // 🧹 Remove duplicates
+      // ==============================
+      const uniqueDownloads = downloadsList.filter(
+        (item, index, self) =>
+          index === self.findIndex((t) => t.filename === item.filename)
+      );
+
+      setDownloads(uniqueDownloads);
     } catch (e) {
-      console.log("Fetch error:", e);
+      console.error("Fetch error:", e);
     }
   };
 
@@ -82,7 +136,10 @@ export default function DownloadsScreen({ navigation }) {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          const success = await DownloadService.deleteDownload(item.uri);
+          const success = await DownloadService.deleteDownload({
+            ...item,
+            title: item.filename,
+          });
 
           if (success) {
             fetchDownloads();
@@ -95,7 +152,12 @@ export default function DownloadsScreen({ navigation }) {
   const renderActiveItem = ({ item }) => (
     <View style={[styles.card, { width: CARD_WIDTH, opacity: 0.7 }]}>
       <View style={styles.imageContainer}>
-        <Image source={{ uri: item.movie.image }} style={styles.thumbnail} />
+        <Image
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          source={{ uri: item.movie.image }}
+          style={styles.thumbnail}
+        />
 
         <View style={styles.playOverlay}>
           <ActivityIndicator color={colors.primary} />
@@ -149,7 +211,8 @@ export default function DownloadsScreen({ navigation }) {
           <Image
             source={{ uri: item.uri }}
             style={styles.thumbnail}
-            resizeMode="cover"
+            contentFit="cover"
+            cachePolicy="memory-disk"
           />
 
           <View style={styles.playOverlay}>
@@ -183,7 +246,17 @@ export default function DownloadsScreen({ navigation }) {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
       <View style={styles.header}>
-        <View>
+        {/* <View style={styles.headerContainer}> */}
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <ArrowLeft size={22} color="white" />
+        </TouchableOpacity>
+
+        {/* Title Section */}
+        <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Downloads</Text>
           <Text style={styles.headerSubtitle}>
             {allData.length} items total
@@ -226,6 +299,8 @@ export default function DownloadsScreen({ navigation }) {
     </View>
   );
 }
+
+export default React.memo(DownloadsScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
@@ -293,5 +368,24 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
     padding: 6,
     borderRadius: 20,
+  },
+  headerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingBottom: 10,
+  },
+
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  headerTextContainer: {
+    flex: 1,
   },
 });

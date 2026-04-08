@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
@@ -32,6 +31,7 @@ import { MOVIES } from "../data/data";
 import { useNavigation } from "@react-navigation/native";
 import { DownloadService } from "../service/DownloadService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image } from "expo-image";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 // Temporary cache directory for the download process
@@ -44,7 +44,7 @@ const DL_STATE = {
   ERROR: "ERROR",
 };
 
-export default function PlayerScreen({ route }) {
+function PlayerScreen({ route }) {
   const { movie } = route.params;
   const navigation = useNavigation();
 
@@ -71,47 +71,53 @@ export default function PlayerScreen({ route }) {
   }, []);
 
   const checkLocalFile = async () => {
-    const path = DownloadService.getFilePath(movie);
+    try {
+      await DownloadService.clearAllDownloads();
 
-    const file = await FileSystem.getInfoAsync(path);
+      const isDownloaded = await DownloadService.isDownloaded(movie);
 
-    if (file.exists) {
-      setLocalUri(path);
+      if (isDownloaded) {
+        const path = DownloadService.getFilePath(movie);
+        setLocalUri(path);
+        setPartialProgress(100);
+        return;
+      }
+
+      // 📊 check progress
+      const progress = await DownloadService.getProgress(movie);
+
+      if (progress > 0 && progress < 100) {
+        setPartialProgress(progress);
+      } else {
+        setPartialProgress(0);
+      }
+    } catch (error) {
+      console.error("checkLocalFile error:", error);
+      setPartialProgress(0);
+      setLocalUri(null);
     }
-
-    const progress = await DownloadService.getProgress(movie);
-    setPartialProgress(progress);
   };
 
   // ── Download & Save Logic ──
   const handleDownloadPress = async () => {
-    if (partialProgress > 0 && partialProgress < 100) {
-      await DownloadService.resumeDownload();
-      return;
-    }
-    const downloading = await DownloadService.isDownloading(movie);
-    const downloaded = await DownloadService.isDownloaded(movie);
+    try {
+      const status = await DownloadService.startDownload(movie, (progress) => {
+        setPartialProgress(progress);
 
-    if (downloaded) {
-      Alert.alert("Already downloaded");
-      return;
-    }
+        if (progress === 100) {
+          setLocalUri(DownloadService.getFilePath(movie));
+        }
+      });
 
-    if (downloading) {
-      Alert.alert("Download paused");
-      await DownloadService.pauseDownload();
-      return;
-    }
+      if (!status) return;
 
-    DownloadService.startDownload(movie, (progress) => {
-      setPartialProgress(progress);
-
-      if (progress === 100) {
+      if (status === "DONE") {
+        setPartialProgress(100);
         setLocalUri(DownloadService.getFilePath(movie));
       }
-    });
-
-    Alert.alert("Download started");
+    } catch (e) {
+      console.error("handleDownloadPress error:", e);
+    }
   };
 
   return (
@@ -132,7 +138,12 @@ export default function PlayerScreen({ route }) {
             />
           ) : (
             <>
-              <Image source={{ uri: movie.image }} style={styles.bannerImage} />
+              <Image
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                source={{ uri: movie.image }}
+                style={styles.bannerImage}
+              />
               <TouchableOpacity
                 style={styles.playCircle}
                 onPress={() => {
@@ -213,6 +224,8 @@ export default function PlayerScreen({ route }) {
     </SafeAreaView>
   );
 }
+
+export default React.memo(PlayerScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },

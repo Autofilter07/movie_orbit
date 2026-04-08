@@ -33,13 +33,17 @@ export default function BottomTabs() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        lazy: true,
+        lazyPreloadDistance: 1,
+        animation: "none",
+        freezeOnBlur: true,
         tabBarStyle: [
           styles.tabBar,
           {
             // Dynamic Positioning
             left: horizontalMargin,
             right: horizontalMargin,
-            bottom: insets.bottom > 0 ? insets.bottom : 20,
+            bottom: 0,
             backgroundColor: colors.card,
             // Adjust height slightly for landscape if needed
             height: Platform.OS === "ios" && insets.bottom > 0 ? 85 : 75,

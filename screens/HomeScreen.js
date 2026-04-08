@@ -14,7 +14,7 @@ const GAP = 15;
 // Calculate card width: (Total Width - Outer Paddings - Gap between cards) / 2 columns
 const CARD_WIDTH = (SCREEN_WIDTH - PADDING * 2 - GAP) / 2;
 
-export default function HomeScreen() {
+function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigate = useNavigation();
 
@@ -77,6 +77,8 @@ const SectionHeader = ({ title, rightText, handleNavigate }) => (
     </TouchableOpacity>
   </View>
 );
+
+export default React.memo(HomeScreen);
 
 // Added TouchableOpacity import requirement for SectionHeader if you want it clickable
 import { TouchableOpacity } from "react-native";

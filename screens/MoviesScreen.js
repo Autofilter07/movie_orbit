@@ -17,7 +17,7 @@ import colors from "../theme/colors";
 
 const CATEGORIES = ["All", "Action", "Sci-Fi", "Adventure", "Drama", "Horror"];
 
-export default function MoviesScreen() {
+function MoviesScreen() {
   const insets = useSafeAreaInsets();
   const { width: SCREEN_WIDTH } = useWindowDimensions(); // Dynamic width
 
@@ -175,6 +175,8 @@ export default function MoviesScreen() {
     </View>
   );
 }
+
+export default React.memo(MoviesScreen);
 
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: colors.background },

@@ -8,9 +8,7 @@ const Stack = createNativeStackNavigator();
 
 export default function RootStack() {
   return (
-    <Stack.Navigator
-      screenOptions={{ headerShown: false, animation: "slide_from_right" }}
-    >
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       {/* The main app interface with the Bottom Bar */}
       <Stack.Screen name="MainTabs" component={BottomTabs} />
 
@@ -20,12 +18,9 @@ export default function RootStack() {
         component={PlayerScreen}
         options={{
           // This makes the Player specifically come from the bottom
-          animation: "slide_from_bottom",
-          // 'containedModal' or 'fullScreenModal' adds that native pop-down feel
           presentation: "fullScreenModal",
           orientation: "all",
           // Optional: prevents flickering on some Android versions
-          animationDuration: 400,
         }}
       />
 
@@ -33,10 +28,8 @@ export default function RootStack() {
         name="Downloads"
         component={DownloadsScreen}
         options={{
-          animation: "slide_from_right",
           orientation: "all",
           // Optional: prevents flickering on some Android versions
-          animationDuration: 400,
         }}
       />
     </Stack.Navigator>

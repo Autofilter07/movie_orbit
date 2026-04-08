@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   ScrollView,
   Switch,
@@ -19,6 +18,7 @@ import {
   Star,
 } from "lucide-react-native";
 import colors from "../theme/colors";
+import { Image } from "expo-image";
 
 // --- DUMMY DATA (Change these easily later) ---
 const USER_DATA = {
@@ -32,7 +32,7 @@ const USER_DATA = {
   },
 };
 
-export default function ProfileScreen() {
+function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const [isNotificationsEnabled, setIsNotificationsEnabled] =
     React.useState(true);
@@ -72,7 +72,12 @@ export default function ProfileScreen() {
       {/* Header / Avatar Section */}
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.avatarWrapper}>
-          <Image source={{ uri: USER_DATA.avatar }} style={styles.avatar} />
+          <Image
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            source={{ uri: USER_DATA.avatar }}
+            style={styles.avatar}
+          />
           <TouchableOpacity style={styles.editBadge}>
             <Settings size={14} color="white" />
           </TouchableOpacity>
@@ -126,6 +131,8 @@ export default function ProfileScreen() {
     </ScrollView>
   );
 }
+
+export default React.memo(ProfileScreen);
 
 const styles = StyleSheet.create({
   container: {

@@ -14,7 +14,7 @@ import { MOVIES } from "../data/data";
 import colors from "../theme/colors";
 import { useNavigation } from "@react-navigation/native";
 
-export default function FavoritesScreen() {
+function FavoritesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
@@ -107,6 +107,8 @@ export default function FavoritesScreen() {
     </View>
   );
 }
+
+export default React.memo(FavoritesScreen);
 
 const styles = StyleSheet.create({
   mainContainer: {
