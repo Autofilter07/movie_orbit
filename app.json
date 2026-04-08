@@ -18,6 +18,7 @@
       "userInterfaceStyle": "dark"
     },
     "android": {
+      "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#000000"
@@ -26,7 +27,8 @@
       "permissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.INTERNET"
+        "android.permission.INTERNET",
+        "POST_NOTIFICATIONS"
       ],
       "package": "com.autofilter.reactnativeapp"
     },
@@ -54,14 +56,11 @@
           "photosPermission": "Allow Movie Orbit to access videos.",
           "savePhotosPermission": "Allow Movie Orbit to save videos.",
           "isAccessMediaLocationEnabled": true,
-          "granularPermissions": [
-            "audio",
-            "photo",
-            "video"
-          ]
+          "granularPermissions": ["audio", "photo", "video"]
         }
       ],
-      "expo-background-task"
+      "expo-background-task",
+      "expo-notifications"
     ],
     "extra": {
       "eas": {

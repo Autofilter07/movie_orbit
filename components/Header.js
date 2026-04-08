@@ -6,7 +6,7 @@ import {
   Platform,
   TouchableOpacity,
 } from "react-native";
-import { Search, Clapperboard } from "lucide-react-native"; // Using Clapperboard as a placeholder for Movie SVG
+import { Clapperboard, Download } from "lucide-react-native"; // Using Clapperboard as a placeholder for Movie SVG
 import colors from "../theme/colors";
 import { useNavigation } from "@react-navigation/native";
 
@@ -31,7 +31,7 @@ export default function Header() {
         </View>
 
         <TouchableOpacity activeOpacity={0.7}>
-          <Search onPress={handleNavigate} color={colors.white} size={24} />
+          <Download onPress={handleNavigate} color={colors.white} size={24} />
         </TouchableOpacity>
       </View>
     </View>

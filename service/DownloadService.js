@@ -50,6 +50,10 @@ export const DownloadService = {
       }
 
       try {
+        const hasPermission = await this.requestMediaLibraryPermission();
+
+        if (!hasPermission) return false;
+
         const album = await MediaLibrary.getAlbumAsync("MoviesOrbit");
 
         if (album) {
@@ -119,13 +123,17 @@ export const DownloadService = {
       // ✅ Check in Internal Storage (MediaLibrary)
       // ==============================
       try {
+        const hasPermission = await this.requestMediaLibraryPermission();
+
+        if (!hasPermission) return false;
+
         const album = await MediaLibrary.getAlbumAsync("MoviesOrbit");
 
         if (album) {
           const assets = await MediaLibrary.getAssetsAsync({
             album,
             mediaType: "video",
-            first: 1000,
+            // first: 1000,
           });
 
           const target = assets.assets.find((a) => a.filename === fileName);
@@ -222,13 +230,18 @@ export const DownloadService = {
 
         await AsyncStorage.removeItem(`download_${movie.link}`);
 
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "Download Complete 🎬",
-            body: movie.title,
-          },
-          trigger: null,
-        });
+        const hasNotificationPermission =
+          await this.requestNotificationPermission();
+
+        if (hasNotificationPermission) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "Download Complete 🎬",
+              body: movie.title,
+            },
+            trigger: null,
+          });
+        }
 
         this.activeDownload = null;
 
@@ -398,9 +411,9 @@ export const DownloadService = {
 
   async saveToInternalStorage(uri, title) {
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
+      const hasPermission = await this.requestMediaLibraryPermission();
 
-      if (status !== "granted") return;
+      if (!hasPermission) return false;
 
       const asset = await MediaLibrary.createAssetAsync(uri);
 
@@ -443,6 +456,10 @@ export const DownloadService = {
       // 📂 Delete from MediaLibrary
       // ==============================
       try {
+        const hasPermission = await this.requestMediaLibraryPermission();
+
+        if (!hasPermission) return false;
+
         const album = await MediaLibrary.getAlbumAsync("MoviesOrbit");
 
         if (album) {
@@ -508,6 +525,10 @@ export const DownloadService = {
 
       // 🧹 Delete MediaLibrary album and videos
       try {
+        const hasPermission = await this.requestMediaLibraryPermission();
+
+        if (!hasPermission) return false;
+
         const album = await MediaLibrary.getAlbumAsync("MoviesOrbit");
 
         if (album) {
@@ -548,6 +569,55 @@ export const DownloadService = {
       return true;
     } catch (e) {
       console.error("Clear error:", e);
+      return false;
+    }
+  },
+  async requestMediaLibraryPermission() {
+    try {
+      const permission = await MediaLibrary.getPermissionsAsync();
+
+      // If already granted
+      if (permission.status === "granted") {
+        return true;
+      }
+
+      // Ask permission
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+
+      if (status === "granted") {
+        return true;
+      }
+
+      Alert.alert(
+        "Permission Required",
+        "Please allow Media Library permission to save and access downloaded movies."
+      );
+
+      return false;
+    } catch (e) {
+      console.error("Permission error:", e);
+      return false;
+    }
+  },
+  async requestNotificationPermission() {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+
+      if (status === "granted") return true;
+
+      const { status: newStatus } =
+        await Notifications.requestPermissionsAsync();
+
+      if (newStatus === "granted") return true;
+
+      Alert.alert(
+        "Permission Required",
+        "Please allow notification permission to receive download updates."
+      );
+
+      return false;
+    } catch (e) {
+      console.error("Notification permission error:", e);
       return false;
     }
   },
